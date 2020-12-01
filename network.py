@@ -5,27 +5,30 @@ import numpy as np
 
 
 class Network(nn.Module):
-    def __init__(self, low, high, num_points, layer_sizes, num_osc):
+    def __init__(self, flags):
         super(Network, self).__init__()
-        self.num_points = num_points
-        self.num_osc = num_osc
+        self.flags = flags
+        self.num_points = self.flags.num_spec_points
+        self.num_osc = self.flags.num_lorentz_osc
         self.op = None
+        self.low = self.flags.freq_low
+        self.high = self.flags.freq_high
 
-        w = np.arange(low, high, (high - low) / self.num_points)
+        w = np.arange(self.low, self.high, (self.high - self.low) / self.num_points)
         self.w = torch.tensor(w)
         self.epsilon_inf = torch.tensor([5 + 0j], dtype=torch.cfloat)
         if torch.cuda.is_available():
             self.w = self.w.cuda()
 
         self.linears, self.batch_norms = [], []
-        for i in range(len(layer_sizes) - 1):
-            in_size = layer_sizes[i]
-            out_size = layer_sizes[i + 1]
+        for i in range(len(self.flags.linear) - 1):
+            in_size = self.flags.linear[i]
+            out_size = self.flags.linear[i + 1]
             self.linears.append(nn.Linear(in_size, out_size))
             self.batch_norms.append(nn.BatchNorm1d(out_size))
-        self.w0 = nn.Linear(layer_sizes[-1], self.num_osc)
-        self.g = nn.Linear(layer_sizes[-1], self.num_osc)
-        self.wp = nn.Linear(layer_sizes[-1], self.num_osc)
+        self.w0 = nn.Linear(self.flags.linear[-1], self.num_osc)
+        self.g = nn.Linear(self.flags.linear[-1], self.num_osc)
+        self.wp = nn.Linear(self.flags.linear[-1], self.num_osc)
 
     def forward(self, x):
         for i in range(len(self.layers) - 1):

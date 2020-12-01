@@ -5,12 +5,15 @@ import torch.nn.functional as F
 from torch.optim import lr_scheduler
 import numpy as np
 class NetworkWrapper():
-    def __init__(self, low, high, num_points, layer_sizes, num_osc, opt, decay):
-        self.model = Network(low, high, num_points, layer_sizes, num_osc)
-        self.init_opt(opt)
+    def __init__(self, flags, train, test):
+        self.flags = flags
+        self.model = Network(flags)
+        self.init_opt(flags.optim)
         self.lr = lr_scheduler.ReduceLROnPlateau(optimizer=self.opt, mode='min',
-                                       factor=decay,
+                                       factor=self.flags.lr_decay_rate,
                                        patience=10, verbose=True, threshold=1e-4)
+        self.train_data = train
+        self.test_data = test
 
     def init_opt(self, opt):
         if opt == 'Adam':
@@ -30,14 +33,14 @@ class NetworkWrapper():
         else:
             raise Exception("Optimizer is not available at the moment.")
 
-    def train_network(self, epochs):
+    def train_network(self):
         if torch.cuda.is_available():
             self.model.cuda()
 
-        for epoch in range(epochs):
+        for epoch in range(self.flags.train_step):
             train_loss, eval_loss = [], []
             self.model.train()
-            for geometry, spectra in data:
+            for geometry, spectra in self.train_data:
                 if torch.cuda.is_available():
                     geometry.cuda()
                     spectra.cuda()
@@ -56,3 +59,6 @@ class NetworkWrapper():
             mean_train_loss = np.mean(train_loss)
             mean_eval_loss = np.mean(eval_loss)
             self.lr.step(mean_train_loss)
+            if epoch % 50 == 0:
+                print("Mean train loss for epoch {}: {}".format(epoch, mean_train_loss))
+                print("Mean eval for epoch {}: {}".format(epoch, mean_eval_loss))
