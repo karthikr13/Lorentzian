@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import add, mul, square, div
 import numpy as np
 
 
@@ -31,7 +32,7 @@ class Network(nn.Module):
         self.wp = nn.Linear(self.flags.linear[-1], self.num_osc)
 
     def forward(self, x):
-        for i in range(len(self.layers) - 1):
+        for i in range(len(self.linears) - 1):
             x = F.relu(self.batch_norms[i](self.linears[i](x)))
         x = self.batch_norms[-1](self.linears[-1](x))
         batch_size = x.size()[0]
@@ -39,22 +40,21 @@ class Network(nn.Module):
         w0 = F.relu(self.w0(x))
         g = F.relu(self.g(x))
         wp = F.relu(self.wp(x))
-        out = [w0, wp, g]
 
+        out = [w0, g, wp]
         w0 = w0.unsqueeze(2)
         g = g.unsqueeze(2) * 0.1
         wp = wp.unsqueeze(2)
 
-        w0 = w0.expand(batch_size, self.num_osc, self.num_points)
-        g = g.expand(batch_size, self.num_osc, self.num_points)
         wp = wp.expand(batch_size, self.num_osc, self.num_points)
-        w = self.w.expand(batch_size, self.num_osc, self.num_points)
+        w0 = w0.expand_as(wp)
+        g = g.expand_as(w0)
+        w_ex = self.w.expand_as(g)
 
-        # calculate T = e2
-        numerator = torch.mul(torch.mul(w, g), torch.square(wp))
-        denom = torch.add(torch.square(torch.sub(torch.square(w0), torch.square(w))), torch.mul(torch.square(w), torch.square(g)))
+        num = mul(square(wp), mul(w_ex, g))
+        denom = add(square(add(square(w0), -square(w_ex))), mul(square(w_ex), square(g)))
+        e2 = div(num, denom)
+        e2 = torch.sum(e2, 1).type(torch.cfloat)
 
-        T = e2 = torch.div(numerator, denom)
-
+        T = e2.float()
         return (T, *out)
-
