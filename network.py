@@ -37,9 +37,9 @@ class Network(nn.Module):
         x = self.batch_norms[-1](self.linears[-1](x))
         batch_size = x.size()[0]
 
-        w0 = F.relu(self.w0(x))
-        g = F.relu(self.g(x))
-        wp = F.relu(self.wp(x))
+        w0 = F.relu(self.w0(F.relu(x)))
+        g = F.relu(self.g(F.relu(x)))
+        wp = F.relu(self.wp(F.relu(x)))
 
         out = [w0, g, wp]
         w0 = w0.unsqueeze(2)

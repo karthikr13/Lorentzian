@@ -68,7 +68,7 @@ class NetworkWrapper():
                     for param_group in self.opt.param_groups:
                         param_group['lr'] = self.flags.lr/10
                         print('Resetting learning rate to %.5f' % self.flags.lr)
-            if epoch % 50 == 0:
+            if (epoch+1) % 50 == 0:
                 print("Mean train loss for epoch {}: {}".format(epoch, mean_train_loss))
                 print("Mean eval for epoch {}: {}".format(epoch, mean_eval_loss))
             self.best_loss = min(self.best_loss, mean_train_loss)

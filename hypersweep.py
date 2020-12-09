@@ -49,3 +49,5 @@ if __name__ == '__main__':
                     flags.linear[-1] = 300
                     flags.model_name = model_name + '_' + model_description.format(l,n,reg,flags.lr)+"_run"
                     best_losses[flags.model_name] = train.train(flags)
+    for i in best_losses:
+        print(i + ": " + str(best_losses[i]))
