@@ -3,8 +3,6 @@ This .py file is to run train.py for hyper-parameter swipping in a linear fashio
 """
 import train
 #os.environ["CUDA_VISIBLE_DEVICE"] = "-1"               #Uncomment this line if you want to use CPU only
-import numpy as np
-import os
 import time
 import flagreader
 
@@ -49,5 +47,6 @@ if __name__ == '__main__':
                     flags.linear[-1] = 300
                     flags.model_name = model_name + '_' + model_description.format(l,n,reg,flags.lr)+"_run"
                     best_losses[flags.model_name] = train.train(flags)
+
     for i in best_losses:
         print(i + ": " + str(best_losses[i]))

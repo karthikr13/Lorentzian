@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch import add, mul, square, div
+from torch import add, mul, div
 import numpy as np
 
 
@@ -17,7 +17,6 @@ class Network(nn.Module):
 
         w = np.arange(self.low, self.high, (self.high - self.low) / self.num_points)
         self.w = torch.tensor(w)
-        self.epsilon_inf = torch.tensor([5 + 0j], dtype=torch.cfloat)
         if torch.cuda.is_available():
             self.w = self.w.cuda()
 
@@ -30,13 +29,19 @@ class Network(nn.Module):
         self.w0 = nn.Linear(self.flags.linear[-1], self.num_osc)
         self.g = nn.Linear(self.flags.linear[-1], self.num_osc)
         self.wp = nn.Linear(self.flags.linear[-1], self.num_osc)
+        if torch.cuda.is_available():
+            self.w = self.w.cuda()
+            self.w0 = self.w0.cuda()
+            self.g = self.g.cuda()
+            self.wp = self.wp.cuda()
 
     def forward(self, x):
         for i in range(len(self.linears) - 1):
             x = F.relu(self.batch_norms[i](self.linears[i](x)))
         x = self.batch_norms[-1](self.linears[-1](x))
         batch_size = x.size()[0]
-
+        if torch.cuda.is_available():
+            x = x.cuda()
         w0 = F.relu(self.w0(F.relu(x)))
         g = F.relu(self.g(F.relu(x)))
         wp = F.relu(self.wp(F.relu(x)))
@@ -46,15 +51,17 @@ class Network(nn.Module):
         g = g.unsqueeze(2) * 0.1
         wp = wp.unsqueeze(2)
 
-        wp = wp.expand(batch_size, self.num_osc, self.num_points)
-        w0 = w0.expand_as(wp)
-        g = g.expand_as(w0)
-        w_ex = self.w.expand_as(g)
+        wp = wp.expand(batch_size, self.num_osc, self.num_points).float()
+        w0 = w0.expand_as(wp).float()
+        g = g.expand_as(w0).float()
+        w_ex = self.w.expand_as(g).float()
 
-        num = mul(square(wp), mul(w_ex, g))
-        denom = add(square(add(square(w0), -square(w_ex))), mul(square(w_ex), square(g)))
+        num = mul(mul(wp, wp), mul(w_ex, g))
+        denom = add(mul(add(mul(w0, w0), -mul(w_ex, w_ex)), add(mul(w0, w0), -mul(w_ex, w_ex))), mul(mul(w_ex, w_ex), mul(g, g)))
         e2 = div(num, denom)
-        e2 = torch.sum(e2, 1).type(torch.cfloat)
+        e2 = torch.sum(e2, 1).type(torch.float)
 
         T = e2.float()
+        if torch.cuda.is_available():
+            T.cuda()
         return (T, *out)

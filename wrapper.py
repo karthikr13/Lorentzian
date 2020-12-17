@@ -4,16 +4,16 @@ import torch
 import torch.nn.functional as F
 from torch.optim import lr_scheduler
 import numpy as np
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
 
 
 class NetworkWrapper():
     def __init__(self, flags, train, test):
         self.flags = flags
         self.model = Network(flags)
-        self.init_opt(flags.optim)
-        self.lr = lr_scheduler.ReduceLROnPlateau(optimizer=self.opt, mode='min',
-                                                 factor=self.flags.lr_decay_rate,
-                                                 patience=10, verbose=True, threshold=1e-4)
+        self.lr = None
         self.train_data = train
         self.test_data = test
         self.best_loss = float('inf')
@@ -40,14 +40,20 @@ class NetworkWrapper():
     def train_network(self):
         if torch.cuda.is_available():
             self.model.cuda()
+        self.init_opt(self.flags.optim)
+        self.lr = lr_scheduler.ReduceLROnPlateau(optimizer=self.opt, mode='min',
+                                       factor=self.flags.lr_decay_rate,
+                                       patience=10, verbose=True, threshold=1e-4)
 
+        train_err, test_err = [], []
         for epoch in range(self.flags.train_step):
             train_loss, eval_loss = [], []
             self.model.train()
             for geometry, spectra in self.train_data:
+                self.model.train()
                 if torch.cuda.is_available():
                     geometry.cuda()
-                    spectra.cuda()
+                    spectra = spectra.cuda()
                 self.opt.zero_grad()
                 out, w0, wp, g = self.model(geometry)
                 loss = F.mse_loss(out, spectra)
@@ -62,14 +68,24 @@ class NetworkWrapper():
                 eval_loss.append(np.copy(loss.cpu().data.numpy()))
             mean_train_loss = np.mean(train_loss)
             mean_eval_loss = np.mean(eval_loss)
+            train_err.append(mean_train_loss)
             self.lr.step(mean_train_loss)
             if self.flags.use_warm_restart:
                 if epoch % self.flags.lr_warm_restart == 0:
                     for param_group in self.opt.param_groups:
-                        param_group['lr'] = self.flags.lr/10
+                        param_group['lr'] = self.flags.lr / 10
                         print('Resetting learning rate to %.5f' % self.flags.lr)
             if epoch % 50 == 0:
                 print("Mean train loss for epoch {}: {}".format(epoch, mean_train_loss))
                 print("Mean eval for epoch {}: {}".format(epoch, mean_eval_loss))
             self.best_loss = min(self.best_loss, mean_train_loss)
+            #for geometry, spectra in self.test_data:
+            #    self.model.eval()
+        x = list(range(self.flags.train_step))
+        plt.title('MSE by Epoch, Best Error ' + str(self.best_loss))
+        plt.xlabel('Epoch')
+        plt.ylabel('MSE')
+        plt.plot(x, train_err, label='Training Data')
+        plt.savefig(self.flags.model_name + '.png')
+
         return self.best_loss
