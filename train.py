@@ -1,4 +1,5 @@
 from wrapper import NetworkWrapper
+from network import Network
 import flagreader
 import datareader
 
@@ -15,7 +16,7 @@ def train(flags):
         flags.geoboundary_norm = [-1, 1, -1, 1]
     wrapper = NetworkWrapper(flags, train_loader, test_loader)
     print("training")
-    return wrapper.train_network()
+    return wrapper.train_network_ascent()
 
 
 def train_ga(flags):

@@ -38,6 +38,18 @@ class NetworkWrapper():
         else:
             raise Exception("Optimizer is not available at the moment.")
 
+    def reset_lr(self, optm):
+        """
+        Reset the learning rate to to original lr
+        :param optm: The optimizer
+        :return: None
+        """
+        self.lr = lr_scheduler.ReduceLROnPlateau(optimizer=self.opt, mode='min',
+                                                 factor=self.flags.lr_decay_rate,
+                                                 patience=10, verbose=True, threshold=1e-4)
+        for g in optm.param_groups:
+            g['lr'] = self.flags.lr
+
     def train_stuck_by_lr(self, optm, lr_limit):
         """
         Detect whether the training is stuck with the help of LR scheduler which decay when plautue
@@ -76,6 +88,7 @@ class NetworkWrapper():
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
                 train_loss.append(np.copy(loss.cpu().data.numpy()))
                 self.opt.step()
+
                 with torch.no_grad():
                     for j, (geometry, spectra) in enumerate(self.test_data):  # Loop through the eval set
                         if cuda:
@@ -85,7 +98,6 @@ class NetworkWrapper():
                         # loss = self.local_lorentz_loss(w0, g, wp, logit,spectra, record)
                         loss = F.mse_loss(logit, spectra)  # compute the loss
                         # loss = self.make_custom_loss(logit, spectra)
-
                         eval_loss.append(np.copy(loss.cpu().data.numpy()))  # Aggregate the loss
                 self.model.eval()
                 out, w0, wp, g = self.model(geometry)
@@ -101,7 +113,7 @@ class NetworkWrapper():
                     for param_group in self.opt.param_groups:
                         param_group['lr'] = self.flags.lr / 10
                         print('Resetting learning rate to %.5f' % self.flags.lr)
-            if epoch % 50 == 0:
+            if epoch % 10 == 0:
                 print("Mean train loss for epoch {}: {}".format(epoch, mean_train_loss))
                 print("Mean eval for epoch {}: {}".format(epoch, mean_eval_loss))
             self.best_loss[0] = min(self.best_loss[0], mean_train_loss)
@@ -119,7 +131,6 @@ class NetworkWrapper():
 
         return self.best_loss
 
-
     def train_network_ascent(self):
         if torch.cuda.is_available():
             self.model.cuda()
@@ -132,7 +143,6 @@ class NetworkWrapper():
         epoch = 0
         gd = True
         while epoch < self.flags.train_step:
-            print(epoch)
             if not gd:
                 print('Epoch {} using gradient ascent'.format(epoch))
             train_loss, eval_loss = [], []
@@ -144,6 +154,7 @@ class NetworkWrapper():
                     spectra = spectra.cuda()
                 self.opt.zero_grad()
                 out, w0, wp, g = self.model(geometry)
+
                 loss = F.mse_loss(out, spectra)
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
@@ -179,8 +190,10 @@ class NetworkWrapper():
                         # Switch to the gradient ascend mode
                         gd = False
                 else:
-                    x = list(range(epoch))
+                    print(mean_train_loss)
+                    x = list(range(len(train_err)))
                     plt.clf()
+                    plt.figure(1)
                     plt.title(
                         'Best Train Error: {}, Best Eval Error: {}'.format(self.best_loss[0], self.best_loss[1]))
                     plt.xlabel('Epoch')
@@ -192,12 +205,24 @@ class NetworkWrapper():
                     break
             else:
                 gd = True
-
-            if epoch % 50 == 0:
+                self.reset_lr(self.opt)
+            if epoch % 10 == 0:
                 print("Mean train loss for epoch {}: {}".format(epoch, mean_train_loss))
                 print("Mean eval for epoch {}: {}".format(epoch, mean_eval_loss))
             epoch += 1
             self.best_loss[0] = min(self.best_loss[0], mean_train_loss)
             self.best_loss[1] = min(self.best_loss[1], mean_eval_loss)
+
+        x = list(range(epoch))
+        plt.clf()
+        plt.figure(1)
+        plt.title(
+            'Best Train Error: {}, Best Eval Error: {}'.format(self.best_loss[0], self.best_loss[1]))
+        plt.xlabel('Epoch')
+        plt.ylabel('MSE')
+        plt.plot(x, train_err, label='Training Data')
+        plt.plot(x, test_err, label='Eval')
+        plt.legend()
+        plt.show()
 
         return self.best_loss
