@@ -16,7 +16,7 @@ def train(flags):
         flags.geoboundary_norm = [-1, 1, -1, 1]
     wrapper = NetworkWrapper(flags, train_loader, test_loader)
     print("training")
-    return wrapper.train_network_ascent()
+    return wrapper.train_network()
 
 
 def train_ga(flags):

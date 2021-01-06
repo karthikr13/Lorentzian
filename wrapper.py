@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.optim import lr_scheduler
 import numpy as np
 import matplotlib
-
+from torch import nn
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
@@ -57,6 +57,7 @@ class NetworkWrapper():
         :param lr_limit: The limit it judge it is stuck
         :return: Boolean value of whether it is stuck
         """
+
         for g in optm.param_groups:
             if g['lr'] < lr_limit:
                 return True
@@ -67,6 +68,8 @@ class NetworkWrapper():
         if torch.cuda.is_available():
             self.model.cuda()
         self.init_opt(self.flags.optim)
+
+        self.init_weights()
         self.lr = lr_scheduler.ReduceLROnPlateau(optimizer=self.opt, mode='min',
                                                  factor=self.flags.lr_decay_rate,
                                                  patience=10, verbose=True, threshold=1e-4)
@@ -85,7 +88,7 @@ class NetworkWrapper():
                 out, w0, wp, g = self.model(geometry)
                 loss = F.mse_loss(out, spectra)
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
+                #torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
                 train_loss.append(np.copy(loss.cpu().data.numpy()))
                 self.opt.step()
 
@@ -131,10 +134,44 @@ class NetworkWrapper():
 
         return self.best_loss
 
+
+    def compare_spectra(self, truth, pred, name,w0,wp,g):
+        """
+        A function to plot the compared spectra during training
+        :param truth:
+        :param pred:
+        :return:
+        """
+        plt.close()
+        f = plt.figure()
+        plt.plot(truth,label='truth')
+        plt.plot(pred,label='pred')
+        plt.legend()
+        plt.title('w0={},wp={},g={}'.format(w0,wp,g))
+        plt.savefig('plots/'+name+'.png')
+
+    def init_weights(self):
+        for layer_name, child in self.model.named_children():
+            print('layer_name = ', layer_name, 'child = ', child)
+            for param in self.model.parameters():
+                if ('w0' in layer_name or 'wp' in layer_name):
+                    print("w0 or wp gets init")
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.1)
+                elif ('g' in layer_name):
+                    print("g gets init")
+                    torch.nn.init.uniform_(child.weight, a=0.0, b=0.1)
+                else:
+                    if ((type(child) == nn.Linear) | (type(child) == nn.Conv2d)):
+                        #print('this gets initialized:', param)
+                        torch.nn.init.xavier_uniform_(child.weight)
+                        if child.bias:
+                            child.bias.data.fill_(0.00)
+
     def train_network_ascent(self):
         if torch.cuda.is_available():
             self.model.cuda()
         self.init_opt(self.flags.optim)
+        self.init_weights()
         self.lr = lr_scheduler.ReduceLROnPlateau(optimizer=self.opt, mode='min',
                                                  factor=self.flags.lr_decay_rate,
                                                  patience=10, verbose=True, threshold=1e-4)
@@ -143,23 +180,35 @@ class NetworkWrapper():
         epoch = 0
         gd = True
         while epoch < self.flags.train_step:
+            gd = True
             if not gd:
                 print('Epoch {} using gradient ascent'.format(epoch))
             train_loss, eval_loss = [], []
             self.model.train()
+            ind = 0
             for geometry, spectra in self.train_data:
+                ind += 1
                 self.model.train()
                 if cuda:
                     geometry.cuda()
                     spectra = spectra.cuda()
+                #print("Geometry snapshot:")
+                #print(geometry.cpu().numpy()[0:10, :])
                 self.opt.zero_grad()
                 out, w0, wp, g = self.model(geometry)
+                if ind == 1 and epoch % 20 == 1:
+                    self.compare_spectra(spectra.cpu().numpy()[0, :] ,out.detach().cpu().numpy()[0,:], 'epoch_{}'.format(epoch),
+                                         w0=w0.detach().cpu().numpy()[0,:], wp=wp.detach().cpu().numpy()[0,:],
+                                         g=g.detach().cpu().numpy()[0,:])
 
                 loss = F.mse_loss(out, spectra)
+                if not gd:
+                    loss *= -0.01
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
-                train_loss.append(np.copy(loss.cpu().data.numpy()))
+                #torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
                 self.opt.step()
+                train_loss.append(np.copy(loss.cpu().data.numpy()))
+                """
                 with torch.no_grad():
                     for j, (geometry, spectra) in enumerate(self.test_data):  # Loop through the eval set
                         if cuda:
@@ -171,13 +220,14 @@ class NetworkWrapper():
                         # loss = self.make_custom_loss(logit, spectra)
 
                         eval_loss.append(np.copy(loss.cpu().data.numpy()))  # Aggregate the loss
+                """
                 self.model.eval()
                 out, w0, wp, g = self.model(geometry)
                 loss = F.mse_loss(out, spectra)
                 eval_loss.append(np.copy(loss.cpu().data.numpy()))
             mean_train_loss = np.mean(train_loss)
-            if not gd:
-                mean_train_loss *= -1
+            #if not gd:
+            #    mean_train_loss *= -1
             mean_eval_loss = np.mean(eval_loss)
             train_err.append(mean_train_loss)
             test_err.append(mean_eval_loss)
@@ -186,7 +236,7 @@ class NetworkWrapper():
                 self.lr.step(mean_train_loss)
                 if mean_train_loss > 0.001:
                     # If the LR changed (i.e. training stuck) and also loss is large
-                    if self.train_stuck_by_lr(self.opt, self.flags.lr / 8):
+                    if self.train_stuck_by_lr(self.opt, self.flags.lr/8):
                         # Switch to the gradient ascend mode
                         gd = False
                 else:
@@ -206,7 +256,7 @@ class NetworkWrapper():
             else:
                 gd = True
                 self.reset_lr(self.opt)
-            if epoch % 10 == 0:
+            if epoch % 20 == 0:
                 print("Mean train loss for epoch {}: {}".format(epoch, mean_train_loss))
                 print("Mean eval for epoch {}: {}".format(epoch, mean_eval_loss))
             epoch += 1
@@ -223,6 +273,6 @@ class NetworkWrapper():
         plt.plot(x, train_err, label='Training Data')
         plt.plot(x, test_err, label='Eval')
         plt.legend()
-        plt.show()
+        plt.savefig('plots/training_curve.png')
 
         return self.best_loss

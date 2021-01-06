@@ -39,14 +39,15 @@ if __name__ == '__main__':
         train.training_from_flag(flags)"""
     best_losses = {}
     for l in [1,3,5]:
-        for reg in [1e-5,1e-4, 1e-3, 1e-2, 1e-1]:
+        #for reg in [1e-5,1e-4, 1e-3, 1e-2, 1e-1]:
+        for reg in [1e-2, 1e-1]:
             for n in [10, 30, 50, 70,100, 150, 200,500]:
                     flags.reg_scale = reg
                     flags.linear = [n for j in range(l+2)]
                     flags.linear[0] = 2
                     flags.linear[-1] = 300
                     flags.model_name = model_name + '_' + model_description.format(l,n,reg,)+"_run"
-                    best_losses[flags.model_name] = train.train_ga(flags)
+                    best_losses[flags.model_name] = train.train(flags)
 
     for i in best_losses:
         print(i + ": " + str(best_losses[i]))

@@ -2,6 +2,11 @@
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/hypersweep1" />
+      <excludeFolder url="file://$MODULE_DIR$/hypersweep2" />
+      <excludeFolder url="file://$MODULE_DIR$/hypersweep3" />
+      <excludeFolder url="file://$MODULE_DIR$/plots" />
+      <excludeFolder url="file://$MODULE_DIR$/toy_data" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />
     </content>
     <orderEntry type="inheritedJdk" />
