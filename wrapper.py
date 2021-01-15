@@ -123,14 +123,14 @@ class NetworkWrapper():
             self.best_loss[1] = min(self.best_loss[1], mean_eval_loss)
 
         x = list(range(self.flags.train_step))
-        plt.clf()
-        plt.title('Best Train Error: {}, Best Eval Error: {}'.format(self.best_loss[0], self.best_loss[1]))
+
         plt.xlabel('Epoch')
         plt.ylabel('MSE')
-        plt.plot(x, train_err, label='Training Data')
-        plt.plot(x, test_err, label='Eval')
+        label = self.flags.model_name.split('_')[2:]
+        plt.plot(x, train_err, label=label)
+
         plt.legend()
-        plt.savefig('hypersweep2/{}'.format(self.flags.model_name + '.png'))
+        plt.savefig('hypersweep4/{}'.format(self.flags.model_name + '.png'))
 
         return self.best_loss
 
@@ -180,7 +180,6 @@ class NetworkWrapper():
         epoch = 0
         gd = True
         while epoch < self.flags.train_step:
-            gd = True
             if not gd:
                 print('Epoch {} using gradient ascent'.format(epoch))
             train_loss, eval_loss = [], []
@@ -255,6 +254,9 @@ class NetworkWrapper():
                     break
             else:
                 gd = True
+                print("Mean train loss for ascent epoch {}: {}".format(epoch, mean_train_loss))
+                print("Mean eval for ascent epoch {}: {}".format(epoch, mean_eval_loss))
+                plt.scatter(epoch, mean_train_loss, color='red', marker='o', s=12)
                 self.reset_lr(self.opt)
             if epoch % 20 == 0:
                 print("Mean train loss for epoch {}: {}".format(epoch, mean_train_loss))

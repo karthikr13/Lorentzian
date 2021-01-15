@@ -10,7 +10,7 @@ def train(flags):
                                                      geoboundary=flags.geoboundary,
                                                      batch_size=flags.batch_size,
                                                      normalize_input=flags.normalize_input,
-                                                     data_dir=flags.data_dir,
+                                                      data_dir=flags.data_dir,
                                                      test_ratio=flags.test_ratio)
     if flags.normalize_input:
         flags.geoboundary_norm = [-1, 1, -1, 1]
@@ -30,10 +30,12 @@ def train_ga(flags):
     if flags.normalize_input:
         flags.geoboundary_norm = [-1, 1, -1, 1]
     wrapper = NetworkWrapper(flags, train_loader, test_loader)
-    print("training")
+    print("training using gradient ascent")
     return wrapper.train_network_ascent()
 
 
 if __name__ == '__main__':
     flags = flagreader.read_flag()
-    train(flags)
+    flags.model_name = 'a_a_default'
+    #train(flags)
+    train_ga(flags)
