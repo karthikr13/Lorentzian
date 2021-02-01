@@ -179,6 +179,7 @@ class NetworkWrapper():
         cuda = torch.cuda.is_available()
         epoch = 0
         gd = True
+        ascent_losses = {}
         while epoch < self.flags.train_step:
             if not gd:
                 print('Epoch {} using gradient ascent'.format(epoch))
@@ -202,7 +203,7 @@ class NetworkWrapper():
 
                 loss = F.mse_loss(out, spectra)
                 if not gd:
-                    loss *= -0.01
+                    loss *= -1 * self.flags.strength
                 loss.backward()
                 #torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
                 self.opt.step()
@@ -256,6 +257,7 @@ class NetworkWrapper():
                 gd = True
                 print("Mean train loss for ascent epoch {}: {}".format(epoch, mean_train_loss))
                 print("Mean eval for ascent epoch {}: {}".format(epoch, mean_eval_loss))
+                ascent_losses[epoch] = mean_train_loss
                 plt.scatter(epoch, mean_train_loss, color='red', marker='o', s=12)
                 self.reset_lr(self.opt)
             if epoch % 20 == 0:
@@ -275,6 +277,8 @@ class NetworkWrapper():
         plt.plot(x, train_err, label='Training Data')
         plt.plot(x, test_err, label='Eval')
         plt.legend()
-        plt.savefig('plots/training_curve.png')
+        plt.savefig('hypersweep5/{}.png'.format(self.flags.model_name))
 
+        print("\nAscent losses:\n")
+        print(ascent_losses)
         return self.best_loss

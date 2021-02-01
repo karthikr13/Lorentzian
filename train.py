@@ -37,5 +37,5 @@ def train_ga(flags):
 if __name__ == '__main__':
     flags = flagreader.read_flag()
     flags.model_name = 'a_a_default'
-    #train(flags)
-    train_ga(flags)
+    train(flags)
+    #train_ga(flags)

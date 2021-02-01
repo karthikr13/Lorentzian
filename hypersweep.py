@@ -38,7 +38,7 @@ if __name__ == '__main__':
                                                                        flags.reg_scale,lr)+"_run"
         train.training_from_flag(flags)"""
     best_losses = {}
-    '''
+
     for l in [3, 5]:
         # for reg in [1e-5,1e-4, 1e-3, 1e-2, 1e-1]:
         for n in [30, 50, 70, 100, 150, 200, 500]:
@@ -48,13 +48,7 @@ if __name__ == '__main__':
             flags.linear[-1] = 100
             print(flags.linear)
             flags.model_name = model_name + '_' + model_description.format(l, n)
-            best_losses[flags.model_name] = train.train_ga(flags)
-    '''
-    for n in [10, 25, 50, 75, 100]:
-        flags.model_name = str(n)+'_nodes_run'
-        flags.linear[0] = 2
-        flags.linear[-1] = n
-        train.train(flags)
+            best_losses[flags.model_name] = train.train(flags)
 
     for i in best_losses:
         print(i + ": " + str(best_losses[i]))

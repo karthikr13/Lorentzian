@@ -14,6 +14,7 @@ if __name__ == '__main__':
     # model_description = "Smooth_L1_Loss_Warm_Restart"
     # model_description = "MSE_Loss_Grad_Clip"
     model_description = "layers{}_nodes{}_reg{}"
+    model_strength_desc = "strength{}_run"
     # for restart in [200, 500]:
     #     for exp in [4,8]:
     #         for clip in [20]:
@@ -38,6 +39,7 @@ if __name__ == '__main__':
                                                                        flags.reg_scale,lr)+"_run"
         train.training_from_flag(flags)"""
     best_losses = {}
+    '''
     for l in [1,3,5]:
         for reg in [1e-5,1e-4, 1e-3, 1e-2, 1e-1]:
             for n in [10, 30, 50, 70,100, 150, 200,500]:
@@ -47,6 +49,12 @@ if __name__ == '__main__':
                     flags.linear[-1] = 300
                     flags.model_name = model_name + '_' + model_description.format(l,n,reg,)+"_run"
                     best_losses[flags.model_name] = train.train_ga(flags)
-
+    '''
+    for s in [0.001, 0.005, 0.01, 0.05, 0.1, 0.5]:
+        flags.linear[0] = 2
+        flags.linear[-1] = 100
+        flags.model_name = model_strength_desc.format(s)
+        flags.strength = s
+        best_losses[flags.model_name] = train.train_ga(flags)
     for i in best_losses:
         print(i + ": " + str(best_losses[i]))
