@@ -16,7 +16,7 @@ def train(flags):
         flags.geoboundary_norm = [-1, 1, -1, 1]
     wrapper = NetworkWrapper(flags, train_loader, test_loader)
     print("training")
-    return wrapper.train_network()
+    wrapper.train_network()
 
 
 def train_ga(flags):
@@ -31,11 +31,11 @@ def train_ga(flags):
         flags.geoboundary_norm = [-1, 1, -1, 1]
     wrapper = NetworkWrapper(flags, train_loader, test_loader)
     print("training using gradient ascent")
-    return wrapper.train_network_ascent()
+    return wrapper.train_network_3()
 
 
 if __name__ == '__main__':
     flags = flagreader.read_flag()
-    flags.model_name = 'a_a_default'
+    flags.model_name = 'ga'
     train(flags)
     #train_ga(flags)

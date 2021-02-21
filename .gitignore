@@ -7,3 +7,5 @@ __pycache__/*
 /hypersweep*/*
 /plots/*
 *.iml
+/toy_data_2/*
+*.zip

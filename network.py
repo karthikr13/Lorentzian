@@ -1,8 +1,15 @@
-import torch
+"""
+This is the module where the model is defined. It uses the nn.Module as a backbone to create the network structure
+"""
+
+import math
+import numpy as np
+
+# Pytorch module
 import torch.nn as nn
 import torch.nn.functional as F
-from torch import add, mul, div
-import numpy as np
+import torch
+from torch import pow, add, mul, div, sqrt, square
 
 
 class Network(nn.Module):
@@ -35,33 +42,79 @@ class Network(nn.Module):
             self.g = self.g.cuda()
             self.wp = self.wp.cuda()
 
-    def forward(self, x):
-        for i in range(len(self.linears) - 1):
-            x = F.relu(self.batch_norms[i](self.linears[i](x)))
-        x = self.batch_norms[-1](self.linears[-1](x))
-        batch_size = x.size()[0]
-        if torch.cuda.is_available():
-            x = x.cuda()
-        w0 = F.relu(self.w0(F.relu(x)))
-        g = F.relu(self.g(F.relu(x)))
-        wp = F.relu(self.wp(F.relu(x)))
+        """
+        General layer definitions:
+        """
+        # Linear Layer and Batch_norm Layer definitions here
+        self.linears = nn.ModuleList([])
+        self.bn_linears = nn.ModuleList([])
+        for ind, fc_num in enumerate(flags.linear[0:-1]):               # Excluding the last one as we need intervals
+            self.linears.append(nn.Linear(fc_num, flags.linear[ind + 1], bias=True))
+            # torch.nn.init.uniform_(self.linears[ind].weight, a=1, b=2)
 
-        out = [w0, g, wp]
-        w0 = w0.unsqueeze(2)
-        g = g.unsqueeze(2) * 0.1
-        wp = wp.unsqueeze(2)
+            self.bn_linears.append(nn.BatchNorm1d(flags.linear[ind + 1], track_running_stats=True, affine=True))
 
-        wp = wp.expand(batch_size, self.num_osc, self.num_points).float()
-        w0 = w0.expand_as(wp).float()
-        g = g.expand_as(w0).float()
-        w_ex = self.w.expand_as(g).float()
+        layer_size = flags.linear[-1]
 
-        num = mul(mul(wp, wp), mul(w_ex, g))
-        denom = add(mul(add(mul(w0, w0), -mul(w_ex, w_ex)), add(mul(w0, w0), -mul(w_ex, w_ex))), mul(mul(w_ex, w_ex), mul(g, g)))
-        e2 = div(num, denom)
-        e2 = torch.sum(e2, 1).type(torch.float)
+        # Last layer is the Lorentzian parameter layer
+        self.lin_w0 = nn.Linear(layer_size, self.flags.num_lorentz_osc, bias=False)
+        self.lin_wp = nn.Linear(layer_size, self.flags.num_lorentz_osc, bias=False)
+        self.lin_g = nn.Linear(layer_size, self.flags.num_lorentz_osc, bias=False)
+        self.use_lorentz = True
 
-        T = e2.float()
-        if torch.cuda.is_available():
-            T.cuda()
-        return (T, *out)
+
+    def forward(self, G):
+        """
+        The forward function which defines how the network is connected
+        :param G: The input geometry (Since this is a forward network)
+        :return: S: The 300 dimension spectra
+        """
+        out = G
+
+        # For the linear part
+        for ind, (fc, bn) in enumerate(zip(self.linears, self.bn_linears)):
+            #print(out.size())
+            if ind < len(self.linears) - 0:
+                out = F.relu(bn(fc(out)))                                   # ReLU + BN + Linear
+            else:
+                out = bn(fc(out))
+
+        # If use lorentzian layer, pass this output to the lorentzian layer
+        if self.use_lorentz:
+
+            w0 = F.relu(self.lin_w0(F.relu(out)))
+            wp = F.relu(self.lin_wp(F.relu(out)))
+            g = F.relu(self.lin_g(F.relu(out)))
+
+            w0_out = w0
+            wp_out = wp
+            g_out = g
+
+            w0 = w0.unsqueeze(2) * 1
+            wp = wp.unsqueeze(2) * 1
+            g = g.unsqueeze(2) * 0.1
+
+             # Expand them to parallelize, (batch_size, #osc, #spec_point)
+            wp = wp.expand(out.size()[0], self.flags.num_lorentz_osc, self.flags.num_spec_points)
+            w0 = w0.expand_as(wp)
+            g = g.expand_as(w0)
+            w_expand = self.w.expand_as(g)
+
+            # Define dielectric function (real and imaginary parts separately)
+            num1 = mul(square(wp), add(square(w0), -square(w_expand)))
+            num2 = mul(square(wp), mul(w_expand, g))
+            denom = add(square(add(square(w0), -square(w_expand))), mul(square(w_expand), square(g)))
+            e1 = div(num1, denom)
+            e2 = div(num2, denom)
+
+            # self.e2 = e2.data.cpu().numpy()                 # This is for plotting the imaginary part
+            # # self.e1 = e1.data.cpu().numpy()                 # This is for plotting the imaginary part
+
+            e1 = torch.sum(e1, 1).type(torch.float)
+            e2 = torch.sum(e2, 1).type(torch.float)
+
+            T = e2.float()
+
+            return T, w0_out, wp_out, g_out
+
+        return out,out,out,out
