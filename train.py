@@ -36,6 +36,7 @@ def train_ga(flags):
 
 if __name__ == '__main__':
     flags = flagreader.read_flag()
-    flags.model_name = 'ga'
-    train(flags)
-    #train_ga(flags)
+    flags.model_name = '4_lorentzian'
+    #flags.strength = 0.01
+    #train(flags)
+    train_ga(flags)
