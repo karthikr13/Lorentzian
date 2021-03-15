@@ -3,7 +3,7 @@ Parameter file for specifying the running parameters for forward model
 """
 # Model Architectural Parameters
 USE_LORENTZ = True
-NUM_LORENTZ_OSC = 1
+NUM_LORENTZ_OSC = 4
 LINEAR = [2*NUM_LORENTZ_OSC, 100, 100, 100]
 
 # Optimization parameters
@@ -29,7 +29,7 @@ FREQ_LOW = 0.5
 FREQ_HIGH = 5
 NUM_SPEC_POINTS = 300
 FORCE_RUN = True
-DATA_DIR = 'toy_data'
+DATA_DIR = 'toy_data_2'
 GEOBOUNDARY =[20, 200, 20, 100]
 NORMALIZE_INPUT = True
 TEST_RATIO = 0.2

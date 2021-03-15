@@ -400,46 +400,11 @@ class NetworkWrapper():
                 loss = self.make_MSE_loss(logit, spectra)  # compute the loss
                 train_loss_eval_mode_list.append(np.copy(loss.cpu().data.numpy()))
                 self.model.train()
-
-            # Calculate the avg loss of training
             train_avg_loss = np.mean(train_loss)
             train_avg_eval_mode_loss = np.mean(train_loss_eval_mode_list)
             train_err.append(train_avg_loss)
             test_err.append(train_avg_eval_mode_loss)
-            if gd:
-                pos_train_losses.append(train_avg_loss)
-            if gd:
-                self.lr_scheduler.step(train_avg_loss)
-                self.best_loss[0] = min(self.best_loss[0], train_avg_loss)
-                self.best_loss[1] = min(self.best_loss[1], train_avg_eval_mode_loss)
-                if train_avg_loss > 0.001:
-                    # If the LR changed (i.e. training stuck) and also loss is large
-                    if self.train_stuck_by_lr(self.optm, self.flags.lr/80):
-                        # Switch to the gradient ascend mode
-                        print("ascent epoch " + str(epoch))
-                        gd = False
-                else:
-                    print(train_avg_loss)
-                    x = list(range(len(train_loss)))
-                    plt.clf()
-                    plt.figure(1)
-                    plt.title(
-                        'Best Train Error: {}, Best Eval Error: {}'.format(self.best_loss[0], self.best_loss[1]))
-                    plt.xlabel('Epoch')
-                    plt.ylabel('MSE')
-                    plt.plot(x, train_loss, label='Training Data')
-                    plt.plot(x, train_loss_eval_mode_list, label='Eval')
-                    plt.legend()
-                    plt.savefig('hypersweep5/{}'.format(self.flags.model_name + '.png'))
-                    break
-            else:
-                gd = True
-                print("Mean train loss for ascent epoch {}: {}".format(epoch, train_avg_loss))
-                print("Mean eval for ascent epoch {}: {}".format(epoch, train_avg_eval_mode_loss))
-                ascent_losses[epoch] = train_avg_loss
-                plt.scatter(epoch, train_avg_loss, color='red', marker='o', s=12)
-                self.reset_lr(self.optm)
-            if epoch % self.flags.eval_step == 0:  # For eval steps, do the evaluations and tensor board
+            if epoch == 0 or epoch % self.flags.eval_step == 0:  # For eval steps, do the evaluations and tensor board
                 # Set to Evaluation Mode
                 self.model.eval()
                 print("Doing Evaluation on the model now")
@@ -460,6 +425,41 @@ class NetworkWrapper():
 
                 print("This is Epoch %d, training loss %.5f, validation loss %.5f" \
                       % (epoch, train_avg_eval_mode_loss, test_avg_loss))
+            # Calculate the avg loss of training
+
+            if gd:
+                pos_train_losses.append(train_avg_loss)
+            if gd:
+                self.lr_scheduler.step(train_avg_loss)
+                self.best_loss[0] = min(self.best_loss[0], test_avg_loss)
+                self.best_loss[1] = min(self.best_loss[1], train_avg_eval_mode_loss)
+                if train_avg_loss > 0.001:
+                    # If the LR changed (i.e. training stuck) and also loss is large
+                    if self.train_stuck_by_lr(self.optm, self.flags.lr/80):
+                        # Switch to the gradient ascend mode
+                        print("ascent epoch " + str(epoch))
+                        gd = False
+                else:
+                    print(train_avg_loss)
+                    x = list(range(len(train_loss)))
+                    plt.clf()
+                    plt.figure(1)
+                    self.best_loss[1] = min(test_err)
+                    plt.title('Best Eval Error: {}'.format(self.best_loss[1]))
+                    plt.xlabel('Epoch')
+                    plt.ylabel('MSE')
+                    plt.plot(x, train_loss, label='Training Data')
+                    plt.plot(x, train_loss_eval_mode_list, label='Eval')
+                    plt.legend()
+                    plt.savefig('hypersweep5/{}'.format(self.flags.model_name + '.png'))
+                    return
+            else:
+                gd = True
+                print("Mean train loss for ascent epoch {}: {}".format(epoch, train_avg_loss))
+                print("Mean eval for ascent epoch {}: {}".format(epoch, train_avg_eval_mode_loss))
+                ascent_losses[epoch] = train_avg_loss
+                plt.scatter(epoch, train_avg_loss, color='red', marker='o', s=12)
+                self.reset_lr(self.optm)
 
             # # Learning rate decay upon plateau
             self.lr_scheduler.step(train_avg_loss)
@@ -474,17 +474,14 @@ class NetworkWrapper():
         x = list(range(epoch))
         plt.clf()
         plt.figure(1)
-        self.best_loss[0] = min(pos_train_losses)
-        print("POS: ")
-        print(pos_train_losses)
         plt.title(
-            'Best Train Error: {}'.format(self.best_loss[1]))
+            'Best Train Error: {}, Best Eval Error: {}'.format(self.best_loss[1], self.best_loss[0]))
         plt.xlabel('Epoch')
         plt.ylabel('MSE')
         plt.plot(x, train_err, label='Training Data')
         plt.plot(x, test_err, label='Eval')
         plt.legend()
-        plt.savefig('hypersweep5/{}.png'.format(self.flags.model_name))
+        plt.savefig('hs4_1/{}.png'.format(self.flags.model_name))
 
         print("\nAscent losses:\n")
         print(ascent_losses)
@@ -530,8 +527,9 @@ class NetworkWrapper():
                 #torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.1)
                 self.optm.step()
                 train_loss.append(np.copy(loss.cpu().data.numpy()))
-                """
+
                 with torch.no_grad():
+                    self.model.eval()
                     for j, (geometry, spectra) in enumerate(self.test_data):  # Loop through the eval set
                         if cuda:
                             geometry.cuda()
@@ -542,7 +540,7 @@ class NetworkWrapper():
                         # loss = self.make_custom_loss(logit, spectra)
 
                         eval_loss.append(np.copy(loss.cpu().data.numpy()))  # Aggregate the loss
-                """
+
                 self.model.eval()
                 out, w0, wp, g = self.model(geometry)
                 loss = F.mse_loss(out, spectra)

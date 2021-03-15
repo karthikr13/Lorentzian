@@ -1,1 +1,19 @@
 Anaconda3 3.5.2
+Traceback (most recent call last):
+  File "hypersweep_ga.py", line 58, in <module>
+    best_losses[flags.model_name] = train.train_ga(flags)
+  File "/hpc/home/kr211/SingleLorentzian/SingleLorentzian/train.py", line 34, in train_ga
+    return wrapper.train_network_3()
+  File "/hpc/home/kr211/SingleLorentzian/SingleLorentzian/wrapper.py", line 374, in train_network_3
+    logit, w0, wp, g = self.model(geometry)  # Get the output
+  File "/hpc/group/collinslab/kr211/.conda/EyeSeg/lib/python3.7/site-packages/torch/nn/modules/module.py", line 889, in _call_impl
+    result = self.forward(*input, **kwargs)
+  File "/hpc/home/kr211/SingleLorentzian/SingleLorentzian/network.py", line 78, in forward
+    a = fc(out)
+  File "/hpc/group/collinslab/kr211/.conda/EyeSeg/lib/python3.7/site-packages/torch/nn/modules/module.py", line 889, in _call_impl
+    result = self.forward(*input, **kwargs)
+  File "/hpc/group/collinslab/kr211/.conda/EyeSeg/lib/python3.7/site-packages/torch/nn/modules/linear.py", line 94, in forward
+    return F.linear(input, self.weight, self.bias)
+  File "/hpc/group/collinslab/kr211/.conda/EyeSeg/lib/python3.7/site-packages/torch/nn/functional.py", line 1753, in linear
+    return torch._C._nn.linear(input, weight, bias)
+RuntimeError: mat1 dim 1 must match mat2 dim 0
