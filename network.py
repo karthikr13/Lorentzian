@@ -73,8 +73,8 @@ class Network(nn.Module):
 
         # For the linear part
         for ind, (fc, bn) in enumerate(zip(self.linears, self.bn_linears)):
-            #print(out.size())
-            if ind < len(self.linears) - 0:
+            if ind < len(self.linears):
+
                 out = F.relu(bn(fc(out)))                                   # ReLU + BN + Linear
             else:
                 out = bn(fc(out))

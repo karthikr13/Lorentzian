@@ -20,6 +20,7 @@ class NetworkWrapper():
         self.best_loss = [float('inf')] * 2
 
     def init_opt(self, opt):
+        print("OPT: {}".format(opt))
         if opt == 'Adam':
             self.optm = torch.optim.Adam(self.model.parameters(), lr=self.flags.lr, weight_decay=self.flags.reg_scale)
         elif opt == 'AdamW':
@@ -213,7 +214,7 @@ class NetworkWrapper():
         plt.plot(x, train_err)
         plt.title("best error: {}".format(best))
         plt.legend()
-        plt.savefig('hypersweep5/{}'.format('gd.png'))
+        plt.savefig('{}'.format('gd.png'))
 
     def train_network_2(self):
         if torch.cuda.is_available():
@@ -339,6 +340,7 @@ class NetworkWrapper():
 
     def train_network_3(self):
         print("Starting training process")
+        lrs = []
         cuda = True if torch.cuda.is_available() else False
         if cuda:
             self.model.cuda()
@@ -404,6 +406,7 @@ class NetworkWrapper():
             train_avg_eval_mode_loss = np.mean(train_loss_eval_mode_list)
             train_err.append(train_avg_loss)
             test_err.append(train_avg_eval_mode_loss)
+            lrs.append(self.flags.lr)
             if epoch == 0 or epoch % self.flags.eval_step == 0:  # For eval steps, do the evaluations and tensor board
                 # Set to Evaluation Mode
                 self.model.eval()
@@ -482,7 +485,11 @@ class NetworkWrapper():
         plt.plot(x, test_err, label='Eval')
         plt.legend()
         plt.savefig('hypersweep6/{}.png'.format(self.flags.model_name))
-
+        plt.clf()
+        plt.plot(x, lrs)
+        plt.xlabel('Epoch')
+        plt.ylabel('MSE')
+        plt.title('Learning rate over time')
         print("\nAscent losses:\n")
         print(ascent_losses)
         return self.best_loss
